@@ -43,6 +43,12 @@ type Config struct {
 	IdleTimeout        time.Duration
 	IdleCheckFrequency time.Duration
 
+	//	for *redis.FailoverClient
+	MasterName string
+
+	// for *redis.Client
+	DB int
+
 	TLS *TLS
 }
 
@@ -67,6 +73,46 @@ func NewClient(conf Config) (*redis.ClusterClient, error) {
 	}
 
 	client := redis.NewClusterClient(&redis.ClusterOptions{
+		Addrs:              conf.Addrs,
+		Username:           conf.Username,
+		Password:           conf.Password,
+		MaxRetries:         conf.MaxRetries,
+		MinRetryBackoff:    conf.MinRetryBackoff,
+		MaxRetryBackoff:    conf.MaxRetryBackoff,
+		DialTimeout:        conf.DialTimeout,
+		ReadTimeout:        conf.ReadTimeout,
+		WriteTimeout:       conf.WriteTimeout,
+		PoolSize:           conf.PoolSize,
+		MinIdleConns:       conf.MinIdleConns,
+		MaxConnAge:         conf.MaxConnAge,
+		PoolTimeout:        conf.PoolTimeout,
+		IdleTimeout:        conf.IdleTimeout,
+		IdleCheckFrequency: conf.IdleCheckFrequency,
+		TLSConfig:          tlsConfig,
+	})
+
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+// NewUniversalClient new redis Universal client
+func NewUniversalClient(conf Config) (redis.UniversalClient, error) {
+	var (
+		tlsConfig *tls.Config
+		err       error
+	)
+	if conf.TLS != nil {
+		tlsConfig, err = NewTLSConfig(conf.TLS.ClientCertFile, conf.TLS.clientKeyFile, conf.TLS.CACertFile)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	client := redis.NewUniversalClient(&redis.UniversalOptions{
+		MasterName:         conf.MasterName,
+		DB:                 conf.DB,
 		Addrs:              conf.Addrs,
 		Username:           conf.Username,
 		Password:           conf.Password,
